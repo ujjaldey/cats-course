@@ -51,6 +51,7 @@ object Semigroups extends App {
 
   val stringOptions: List[Option[String]] = List("a", "b", "c").map(s => Option(s))
   println(reduceThings(stringOptions))
+  println("====")
 
   // TODO 1: support a new type
   // hint: use the same pattern we used with Eq
@@ -60,10 +61,11 @@ object Semigroups extends App {
     Expense(Math.max(e1.id, e2.id), e1.amount + e2.amount)
   }
 
+  // test exercise 1
   val expenses = List(Expense(1, 99), Expense(2, 35), Expense(43, 10))
   println(reduceThings(expenses)) // works as the implicit expenseSemigroup exists
 
-  // extension methods from Semigroup - |+|
+  // extension methods from Semigroup - |+| --> combine
 
   import cats.syntax.semigroup._
 
@@ -78,15 +80,20 @@ object Semigroups extends App {
   // we can also combine Expense
   println(Expense(1, 30.0) |+| Expense(2, 10) |+| Expense(3, 20))
 
+  // |+| is useful as it allows to combine any kind of values if you have the implicit Semigroup of that type
+
+  println("====")
+
   // TODO 2: implement reduceThings2 with the combination function |+|
-  def reduceThings2[T](list: List[T])(implicit semigroup: Semigroup[T]): T = list.reduce(_ |+| _)
+  def reduceThings2[T](list: List[T])(implicit semigroup: Semigroup[T]): T = list.reduce(_ |+| _) // instead of Semigroup.combine()
 
   println(reduceThings2[String](List("a", "b", "c")))
 
-  // to reduce the above further, we can remove the implicit semigroup all together and use a type context: T: Semigroup
+  // to reduce the above further, we can remove the implicit semigroup all together and use a TYPE CONTEXT: T: Semigroup
   // which means that the compiler will have access to an implicit Semigroup[T]
   def reduceThings3[T: Semigroup](list: List[T]): T = list.reduce(_ |+| _)
 
+  // test exercise 2
   println(reduceThings3[String](List("a", "b", "c")))
   println(reduceThings3(expenses)) // uses implicit expenseSemigroup
 }
