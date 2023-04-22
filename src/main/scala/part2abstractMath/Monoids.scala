@@ -11,11 +11,13 @@ object Monoids extends App {
   // the Semigroup combine |+| method is associative - if you want to sum all the numbers (left to right or right to left), the combine method will always produce the same result
   println(numbers.foldLeft(0)(_ |+| _))
   println(numbers.foldRight(0)(_ |+| _))
+  println("====")
 
   // define a general API
   def combineFold[T](list: List[T])(implicit semigroup: Semigroup[T]): T = ???
   //    list.foldLeft(/* WHAT VALUE TO PUT HERE AS SEED VALUE */)(_ |+| _)
   // Semigroup is not enough to provide a starting value here. there is no way that a Semigroup would be able to provide a starting value for kind T
+  // (if T is Int, then seed value can be 0, if String, then can be "". But for T, don't know!)
   // This is a problem. We need to naturally extend the concept of Semigroup to some other type class, that will also provide us with a starting value
   // this starting value for foldLeft is called - zero value, empty value, neutral value
   // the type class that can provide an empty value for any type class is called MONOIDS
@@ -25,14 +27,16 @@ object Monoids extends App {
 
   import cats.Monoid
 
-  val intMonoid = Monoid[Int]
-  val combineInt = intMonoid.combine(23, 999) // 1024
-  val zero = intMonoid.empty // 0 - empty value for Int is 0
+  val intMonoid = Monoid[Int] // uses the Int implicit imported via cats.instances.int._
+  val combineInt = intMonoid.combine(23, 999) // 1024 - Monoid and Semigroup are similar. so have combine() method
+  val zero = intMonoid.empty // 0 - empty value for Int is 0. provided by Monoid
 
   import cats.instances.string._ // brings the implicit Monoid[String] in scope
 
   val emptyString = Monoid[String].empty // "" empty string
   val combineString = Monoid[String].combine("abc ", "def")
+
+  // trait Monoid extends Seimgroup
 
   import cats.instances.option._ // in the presence of implicit Monoid[Int], the compiler will also construct an implicit Monoid[Option[Int]]
 
@@ -45,16 +49,19 @@ object Monoids extends App {
 
   // extension methods for Monoids - |+| // already imported from cats.syntax.semigroup._
   // or you can also import below:
-  // import cats.syntax.monoid._
+  // import cats.syntax.monoid._ // or cats.syntax.semigroup._
   val combinedOptionFancy = Option(3) |+| Option(7)
   println(combinedOptionFancy)
+  println("====")
 
   // TODO 1: implement a reduceByFold
-  def combineFoldMonoid[T](list: List[T])(implicit monoid: Monoid[T]): T = list.foldLeft(monoid.empty)(_ |+| _)
+  def combineFoldMonoid[T](list: List[T])(implicit monoid: Monoid[T]): T =
+    list.foldLeft(monoid.empty)(_ |+| _)
 
   println(combineFoldMonoid(numbers))
   println(combineFoldMonoid(List("a", "b", "c")))
   println(combineFoldMonoid(List(Option("a"), Option("b"), Option("c"))))
+  println("====")
 
   // TODO 2: combine a list of phonebooks as Map[String, Int]
   // don't construct the monoid by yourself, use an import
@@ -68,6 +75,7 @@ object Monoids extends App {
 
   val massivePhoneBook = combineFoldMonoid(phonebooks)
   println(massivePhoneBook)
+  println("====")
 
   // TODO 3: shopping cart and online store with Monoids
   // hint: define your own monoid - Monoid.instance
