@@ -8,7 +8,8 @@ object Monoids extends App {
 
   val numbers = (1 to 1000).toList
 
-  // the Semigroup combine |+| method is associative - if you want to sum all the numbers (left to right or right to left), the combine method will always produce the same result
+  // the Semigroup combine |+| method is associative
+  // - if you want to sum all the numbers (left to right or right to left), the combine method will always produce the same result
   println(numbers.foldLeft(0)(_ |+| _))
   println(numbers.foldRight(0)(_ |+| _))
   println("====")
@@ -24,6 +25,7 @@ object Monoids extends App {
 
   // MONOIDS - it's the same as Semigroup, but with a capability to provide a zero value
   // Monoids extends Semigroup with an additional empty method and a few utility methods (isEmpty)
+  // MONOID is the extension of a Semigroup with a empty() method
 
   import cats.Monoid
 
@@ -41,7 +43,7 @@ object Monoids extends App {
   import cats.instances.option._ // in the presence of implicit Monoid[Int], the compiler will also construct an implicit Monoid[Option[Int]]
 
   val emptyOption = Monoid[Option[Int]].empty // None
-  val combineOption = Monoid[Option[Int]].combine(Option(2), Option(5)) // Option(7)
+  val combineOption = Monoid[Option[Int]].combine(Option(2), Option(5)) // Some(7)
   println(emptyOption)
   println(combineOption)
   println(Monoid[Option[Int]].combine(Option(2), Option.empty[Int])) // will be Some(2)

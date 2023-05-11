@@ -54,7 +54,7 @@ object Semigroups extends App {
   println("====")
 
   // TODO 1: support a new type
-  // hint: use the same pattern we used with Eq
+  // hint: use the same pattern we used with Eq - use Semigroup.instance[T]
   case class Expense(id: Long, amount: Double)
 
   implicit val expenseSemigroup: Semigroup[Expense] = Semigroup.instance[Expense] { (e1, e2) =>
@@ -77,7 +77,8 @@ object Semigroups extends App {
   //  import cats.instances.double._
   //  println(3.4 |+| 34.5) // wont work unless we import cats.instances.double._
 
-  // we can also combine Expense
+  // we can also combine Expense as the compiler can inject expenseSemigroup implicit
+  // you can combine any type as long as you have the implicit of Semigroup of that type defined
   println(Expense(1, 30.0) |+| Expense(2, 10) |+| Expense(3, 20))
 
   // |+| is useful as it allows to combine any kind of values if you have the implicit Semigroup of that type
