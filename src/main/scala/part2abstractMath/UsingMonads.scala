@@ -14,18 +14,22 @@ object UsingMonads extends App {
   // applicable to Option, Try, Future, etc.
 
   // Either is also a Monad
+  // Either is Right biased. So Int would be the type/value for the Either
   val aManualEither: Either[String, Int] = Right(42) // right side is the desirable value, left side is undesirable
 
   type LoadingOr[T] = Either[String, T]
   type ErrorOr[T] = Either[Throwable, T]
+  // the above types are similar to Option[T] or List[T]. Hence types should be applicable to Monad
 
   import cats.instances.either._
 
-  val loadingMonad = Monad[LoadingOr]
+  val loadingMonad = Monad[LoadingOr] // uses import cats.instances.either._
   val anEither = loadingMonad.pure(45) // LoadingOr[Int] == Right(45)
   val aChangedLoading = loadingMonad.flatMap(anEither)(n => if (n % 2 == 0) Right(n + 1) else Left("Loading meaning of life..."))
   println(anEither)
   println(aChangedLoading)
+
+  println("====")
 
   // imaginary online store
   case class OrderStatus(orderId: Long, status: String)
@@ -40,13 +44,21 @@ object UsingMonads extends App {
   val orderLocation = loadingMonad.flatMap(getOrderStatus(orderId))(orderStatus => trackLocation(orderStatus))
   // or simply:
   //  val orderLocation = loadingMonad.flatMap(getOrderStatus(orderId))(trackLocation)
-  // use extension methods // map is here
 
-  val orderLocationBetter: LoadingOr[String] = getOrderStatus(orderId).flatMap(trackLocation)
+  // use extension methods
+
+  import cats.syntax.flatMap._
+  import cats.syntax.functor._ // map is here
+
+  val orderLocationBetter: LoadingOr[String] = getOrderStatus(orderId).flatMap(trackLocation) // call flatMap() directly on Monadic value (extension method)
   val orderLocationFor: LoadingOr[String] = for {
     orderStatus <- getOrderStatus(orderId)
     location <- trackLocation(orderStatus)
   } yield location
+
+  println(orderLocationBetter)
+  println(orderLocationFor)
+  println("====")
 
   // TODO: the service layer API of a web app
   case class Connection(host: String, port: String)
@@ -86,7 +98,8 @@ object UsingMonads extends App {
   val responseOption = OptionHttpService.getConnection(config).flatMap {
     conn => OptionHttpService.issueRequest(conn, "Hello from OptionHttpService")
   }
-  println(responseOption)
+  println(responseOption) // returns None as length >= 20
+
   val responseOption2 = OptionHttpService.getConnection(config).flatMap {
     conn => OptionHttpService.issueRequest(conn, "Hello HttpService")
   }
@@ -99,20 +112,20 @@ object UsingMonads extends App {
 
   println(responseOptionFor)
 
-  // TODO implement another HttpService iwth LoadingOr or ErrorOr
+  // TODO implement another HttpService with LoadingOr or ErrorOr
   object AggresiveHttpService extends HttpService[ErrorOr] {
     override def getConnection(cfg: Map[String, String]): ErrorOr[Connection] =
       if (!cfg.contains("host") || !cfg.contains("port"))
-        Left(new RuntimeException("Connection could not be established: Invaild Configuration"))
+        Left(new RuntimeException("Connection could not be established: Invalid Configuration"))
       else
-        Right(Connection(cfg("host"), cfg("port")))
+        Right(Connection(cfg("host"), cfg("port"))) // no chance of blowing up, as we have already checked .contains() above
 
     override def issueRequest(connection: Connection, payload: String): ErrorOr[String] =
       if (payload.length >= 20) Left(new RuntimeException("Payload is too large"))
       else Right(s"Request ($payload) has been accepted")
   }
 
-  println("----")
+  println("====")
 
   val errorOrResponse1: ErrorOr[String] = for {
     conn <- AggresiveHttpService.getConnection(config)
@@ -131,18 +144,20 @@ object UsingMonads extends App {
   // Generalize
 
   import cats.instances.option._
-  import cats.syntax.flatMap._
-  import cats.syntax.functor._
 
-  def getResponse[M[_]](service: HttpService[M], payload: String)(implicit monad: Monad[M]): M[String] =
+  def getResponse[M[_]](service: HttpService[M], payload: String)(implicit monad: Monad[M]): M[String] = {
+    // as you have extension methods in scope, you would be able to directly use for comprehension directly in this method
     for {
       conn <- service.getConnection(config)
       response <- service.issueRequest(conn, payload)
     } yield response
+  }
 
-  println("----")
+  println("====")
+  // exact same high level api can be used, regardless of what implementation of HttpService and what type of HttpService we are using
   println(getResponse(OptionHttpService, "Hello ErrorOrServer LONG LONG"))
-  println(getResponse(AggresiveHttpService, "Hello ErrorOrServer LONG LONG"))
   println(getResponse(OptionHttpService, "Hello httpService"))
-  println(getResponse(OptionHttpService, "Hello OptionHttpService LONG LONG"))
+  println(getResponse(AggresiveHttpService, "Hello ErrorOrServer LONG LONG"))
+  println(getResponse(AggresiveHttpService, "Hello OptionHttpSer"))
+  println("====")
 }

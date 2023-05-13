@@ -11,18 +11,17 @@ object MonadTransformers extends App {
 
   import cats.data.OptionT
   import cats.instances.future._
-  // fetch an implicit OptionT[List]
-  import cats.instances.list._
+  import cats.instances.list._ // fetch an implicit OptionT[List]
 
   val listOfNumberOptions: OptionT[List, Int] = OptionT(List(Option(1), Option(2)))
   val listOfCharOptions: OptionT[List, Char] = OptionT(List(Option('a'), Option('b'), Option.empty[Char]))
 
-  val listOfTuples: OptionT[List, (Int, Char)] = for {
+  val listOfTuples: OptionT[List, (Int, Char)] = for { // Type OptionT has map() and flatMap()
     char <- listOfCharOptions
     number <- listOfNumberOptions
   } yield (number, char)
 
-  println(listOfTuples.value)
+  println(listOfTuples.value) // value accesses the List[Option] inside
 
   // either transformer
 
@@ -32,6 +31,7 @@ object MonadTransformers extends App {
   implicit val ec: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(8))
   val futureOfEither: EitherT[Future, String, Int] = EitherT.right(Future(45)) // wrap over Future(Right(45))
   // or: EitherT[Future[Either[String, Int]]](Right(45))
+  // or: Either of Either
 
   /*
     TODO exercise
@@ -55,12 +55,12 @@ object MonadTransformers extends App {
   }
 
   // TODO 1
-  // hint: call getBandwidth twice, ad combine the results
+  // hint: call getBandwidth twice, and combine the results
   // to import F: Monad[Future]
 
   def canWithstandSurge(s1: String, s2: String): AsyncResponse[Boolean] = for {
-    band1 <- getBandwidth(s1)
-    band2 <- getBandwidth(s2)
+    band1 <- getBandwidth(s1) // needs import cats.instances.future._
+    band2 <- getBandwidth(s2) // needs import cats.instances.future._
   } yield band1 + band2 > 250
   // returns Future[Either[String, Boolean]]
 
@@ -68,12 +68,16 @@ object MonadTransformers extends App {
   // hint: call canWithstandSurge + transform
   def generateTrafficSpikeReport(s1: String, s2: String): AsyncResponse[String] =
     canWithstandSurge(s1, s2).transform {
-      case Left(reason) => Left(s"Servers $s1 and $s2 cannot cope with the incoming spike: $reason")
-      case Right(false) => Left(s"Servers $s1 and $s2 cannot cope with the incoming spike: not enough total bandwidth")
-      case Right(true) => Right(s"Servers $s1 and $s2 can cope with the incoming spike: no problem")
+      case Left(reason) => Left(s"Servers $s1 and $s2 cannot cope with the incoming spike: $reason") // unreachable server
+      case Right(false) => Left(s"Servers $s1 and $s2 cannot cope with the incoming spike: not enough total bandwidth") // desirable result is false, as not enough bandwidth
+      case Right(true) => Right(s"Servers $s1 and $s2 can cope with the incoming spike: no problem") // desirable result is true, with sufficient bandwidth
     }
-  // returns Future[Either[String, String]]
+  //  ^^^^^^^^^^^^^^^^^^^ =>                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  // Future[Either[String, Boolean]] =>              Future[Either[String, String]]
 
+  println("====")
+
+  generateTrafficSpikeReport("server2.abcd.com", "server3.abcd.com").value.foreach(println)
   generateTrafficSpikeReport("server1.abcd.com", "server3.abcd.com").value.foreach(println)
   generateTrafficSpikeReport("server5.abcd.com", "server3.abcd.com").value.foreach(println)
 }
