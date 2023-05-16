@@ -6,6 +6,8 @@ object Readers extends App {
     - a db layer
     - an http layer
     - a business logic layer
+
+    The configuration file feeds all the layers in your application
    */
   case class Configuration(dbUsername: String, dbPassword: String, host: String, port: Int, nThreads: Int, emailReplyTo: String)
 
@@ -21,23 +23,27 @@ object Readers extends App {
 
   // bootstrap
   val config = Configuration("ujjal", "udey123", "localhost", 1234, 8, "ud.sender@gmail.com")
-  // cats Reader
+
 
   import cats.data.Reader
 
-  val dbReader: Reader[Configuration, DbConnection] = Reader(conf => DbConnection(conf.dbUsername, conf.dbPassword)) // Configuration is input, DbConnection is output
+  // in Reader, Configuration is input, DbConnection is output
+  // it gets the Configuration, and then returns a DbConnection
+  val dbReader: Reader[Configuration, DbConnection] = Reader(conf => DbConnection(conf.dbUsername, conf.dbPassword))
   val dbConn = dbReader.run(config)
 
   // Reader[I, O] - but if we use a map() method, then O can be transformed into something else
+  // dbReader returns a DbConnection. So we can use map, and then use getOrderStatus() method to return the order status
   val ujjalsOrderStatusReader: Reader[Configuration, String] = dbReader.map(dbConn => dbConn.getOrderStatus(55))
+  // then run the Reader to get the actual status
   val ujjalsOrderStatus: String = ujjalsOrderStatusReader.run(config)
   println(ujjalsOrderStatus)
 
   def getLastOrderStatus(username: String): String = {
     //    val usersLastOrderIdReader: Reader[Configuration, String] = dbReader
     //      .map(_.getLastOrderId(username))
-    //      .flatMap(lastOrderId => dbReader.map(_.getOrderStatus(lastOrderId)))
-    //    usersLastOrderIdReader.run(config)
+    //      .flatMap(lastOrderId:Long => dbReader.map(_.getOrderStatus(lastOrderId))) // instead of calling the run method of usersLastOrderIdReader and getting the lastOrderId, and then calling getOrderStatus() for that order id, we can use flatMap. Reader supports map and flatMap
+    //    usersLastOrderIdReader.run(config) // input is Configuration
 
     // identical. using for comprehension
     val usersOrderFor: Reader[Configuration, String] = for {
@@ -71,7 +77,7 @@ object Readers extends App {
       lastOrderId <- dbReader.map(_.getLastOrderId(username))
       orderStatus <- dbReader.map(_.getOrderStatus(lastOrderId))
       emailService <- emailServiceReader
-    } yield emailService.sendEmail(userEmail, s"Your last order has the status: $orderStatus")
+    } yield emailService.sendEmail(userEmail, s"Your last order ($lastOrderId) has the status: $orderStatus")
 
     emailReader.run(config)
   }
