@@ -8,6 +8,7 @@ import scala.util.Try
 object DataValidation extends App {
 
   // acts like Either. Left side is undesirable, right side is desirable
+
   import cats.data.Validated
 
   val aValidValue: Validated[String, Int] = Validated.valid(42) // Right value (Int) in Either
@@ -72,23 +73,31 @@ object DataValidation extends App {
   println(validateNumber(-20))
   println(validateNumber(201))
 
-  println("====")
+  println("==== PART 2 ====")
 
   // chain
-  println(aValidValue.andThen(_ => anInvalidValue)) // flatMap will short-circuit the additional chain. hence we do not use flatMap
-  // test valid value
-  println(aValidValue.ensure(List("something went wrong"))(_ % 2 == 0))
-  // transform
-  println(aValidValue.map(_ + 1))
-  println(aValidValue.leftMap(_.length))
-  println(aValidValue.bimap(_.length, _ + 1))
-  println(aValidValue.bimap(_.length, _ + 1))
-  println("====")
+  // andThen converts a valid value to another Validated value of different type
+  // however, andThen is not flatMap, as flatMap will not continue with the transformation and accumulate the error in case the original value is invalid
+  // flatMap will short-circuit the additional chain. hence we do not use flatMap
+  // Validated is not applicable for Monad
+  println(aValidValue.andThen(_ => anInvalidValue))
 
-  // interoperate with stdlib
+  // test valid value
+  // if the predicate (boolean function) in ensure() fails from the wrapped value of the valid value, then this will turn the valid value into invalid value where the invalid error is described from the first argument "something went wrong"
+  println("valid: ", aValidValue.ensure(List("something went wrong"))(_ % 2 == 0))
+  println("invalid: ", aValidValue.ensure(List("something went wrong"))(_ % 2 == 1))
+  // transform
+  println(aValidValue.map(_ + 1)) // map on the right value i.e. valid value
+  println(aValidValue.leftMap(_.length)) // leftMap: map on the left value i.e. error value
+  println(anInvalidValue.leftMap(_.length))
+  println(aValidValue.bimap(_.length, _ + 1)) // map on both - valid value and error type
+  println(anInvalidValue.bimap(_.length, _ + 1))
+  println("====~~")
+
+  // interoperate with stdlib - Either, Option, Try
   val eitherToValidated: Validated[List[String], Int] = Validated.fromEither(Right(42))
   val optionToValidated: Validated[List[String], Int] = Validated.fromOption(None, List("nothing present here"))
-  val tryToValidated: Validated[Throwable, Int] = Validated.fromTry(Try("something".toInt))
+  val tryToValidated: Validated[Throwable, Int] = Validated.fromTry(Try("something".toInt)) // "something".toInt will throw exception
 
   println(eitherToValidated)
   println(optionToValidated)
@@ -98,21 +107,23 @@ object DataValidation extends App {
   // backwards
   println(aValidValue.toOption)
   println(aValidValue.toEither)
-  // nothing like toTry
+  // nothing like toTry, because Validated has to be typed with a throwable
   println("====")
 
-  // TODO 2 - form valiation
+  // TODO 2 - form validation
   object FormValidation {
 
     import cats.instances.string._
 
     type FormValidation[T] = Validated[List[String], T]
 
-    def getValue(form: Map[String, String], fieldName: String): FormValidation[String] =
+    def getValue(form: Map[String, String], fieldName: String): FormValidation[String] = {
+      // get() of Map will return an Option. If Option is None, then it returns the 2nd argument with List[String]
       Validated.fromOption(form.get(fieldName), List(s"The field $fieldName must be specified."))
+    }
 
     def nonBlank(value: String, fieldName: String): FormValidation[String] =
-      Validated.cond(value.length > 0, value, List(s"The field $fieldName must not be blank."))
+      Validated.cond(value.nonEmpty, value, List(s"The field $fieldName must not be blank."))
 
     def emailProperForm(email: String): FormValidation[String] =
       Validated.cond(email.contains("@"), email, List("Email is invalid."))
@@ -133,7 +144,7 @@ object DataValidation extends App {
         - password must have >= characters
      */
     def validateForm(form: Map[String, String]): FormValidation[String] =
-      getValue(form, "Name").andThen(name => nonBlank(name, "Name"))
+      getValue(form, "Name").andThen(name => nonBlank(name, "Name")) // andThen is similar to flatMap
         .combine(getValue(form, "Email").andThen(emailProperForm)) // requires import cats.instances.string._
         .combine(getValue(form, "Password").andThen(passwordCheck)) // requires import cats.instances.string._
         .map(_ => "User registration complete.")
@@ -145,9 +156,19 @@ object DataValidation extends App {
     "Password" -> "abcdef34"
   )
   println(FormValidation.validateForm(form))
+  println(FormValidation.validateForm(Map(
+    "Name" -> "",
+    "Email" -> "ujjal#gmail.com",
+    "Password" -> "abcdef34"
+  )))
+  println(FormValidation.validateForm(Map(
+    "Name" -> "ujjal",
+    "Email" -> "ujjal@gmail.com",
+    "Password" -> "abcdef34567"
+  )))
   println("====")
 
-  import cats.syntax.validated._ // extension method
+  import cats.syntax.validated._ // extension method for nicer api
 
   println(42.valid[List[String]]) // Validated[List[String], Int]
   println("something wrong".invalid[List[String]]) // Validated[List[String], Int]
