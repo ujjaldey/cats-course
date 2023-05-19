@@ -7,12 +7,16 @@ import scala.util.Try
 
 object DataValidation extends App {
 
+  // acts like Either. Left side is undesirable, right side is desirable
   import cats.data.Validated
 
-  val aValidValue: Validated[String, Int] = Validated.valid(42) // Right value in Either
-  val anInvalidValue: Validated[String, Int] = Validated.invalid("something went wrong") // Left value of Either
+  val aValidValue: Validated[String, Int] = Validated.valid(42) // Right value (Int) in Either
+  val anInvalidValue: Validated[String, Int] = Validated.invalid("something went wrong") // Left value (String) of Either
 
+  // cond has 3 params: a predicate with boolean condition, value if condition is true, value if condition is false
   val aTest: Validated[String, Int] = Validated.cond(42 > 39, 99, "meaning of life is too small")
+
+  // Validated has a different contract to Either. Validated can combine all the errors into one giant value by no mutation, just by purely functional programming
   println(aTest)
   println("====")
 
@@ -33,6 +37,8 @@ object DataValidation extends App {
     else tailRecPrime(Math.abs(n / 2))
   }
 
+  // elegant, but clunky. not good
+
   def testNumber(n: Int): Either[List[String], Int] = {
     val isNotEven: List[String] = if (n % 2 == 0) List() else List("Number must be even")
     val isNegative: List[String] = if (n >= 0) List() else List("Number must be non-negative")
@@ -51,9 +57,9 @@ object DataValidation extends App {
 
   // using Validated - superior
 
-  import cats.instances.list._
+  import cats.instances.list._ // appropriate combination function for list
 
-  implicit val combineIntMax: Semigroup[Int] = Semigroup.instance[Int](Math.max)
+  implicit val combineIntMax: Semigroup[Int] = Semigroup.instance[Int](Math.max) // also require the implicit Semigroup for Int
 
   def validateNumber(n: Int): Validated[List[String], Int] =
     Validated.cond(n % 2 == 0, n, List("Number must be even"))
