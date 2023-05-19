@@ -6,7 +6,7 @@ object FunctionalState extends App {
   import cats.data.State
 
   val countAndSay: State[Int, String] = State(currentCount => (currentCount + 1, s"Counted $currentCount"))
-  val (eleven, counted10) = countAndSay.run(10).value
+  val (eleven, counted10) = countAndSay.run(10).value // run with the initial input
   println(eleven, counted10)
 
   // state is an abstraction for iterative computation expressed in purely functional terms
@@ -20,8 +20,8 @@ object FunctionalState extends App {
   println(a)
 
   // pure FP with states
-  val firstTransformation = State((s: Int) => (s + 1, s"Added 1 to 10, obtained $s"))
-  val secondTransformation = State((s: Int) => (s * 5, s"Multiplied with 5, obtained $s"))
+  val firstTransformation = State((s: Int) => (s + 1, s"Added 1 to 10, obtained ${s + 1}"))
+  val secondTransformation = State((s: Int) => (s * 5, s"Multiplied with 5, obtained ${s * 5}"))
   val compositeTransformation: State[Int, (String, String)] = firstTransformation.flatMap { firstResult =>
     secondTransformation.map(secondResult => (firstResult, secondResult))
   }
@@ -37,8 +37,8 @@ object FunctionalState extends App {
 
   // by doing via function chaining instead of State, will deeply nest the result
   // also for every chain, you have to implement decomposition logic
-  val funct1 = (s: Int) => (s + 1, s"Added 1 to 10, obtained $s")
-  val funct2 = (s: Int) => (s * 5, s"Multiplied with 5, obtained $s")
+  val funct1 = (s: Int) => (s + 1, s"Added 1 to 10, obtained ${s + 1}")
+  val funct2 = (s: Int) => (s * 5, s"Multiplied with 5, obtained ${s * 5}")
 
   val compositeFunc = funct1.andThen {
     case (newState, firstResult) => (firstResult, funct2(newState))
@@ -60,7 +60,6 @@ object FunctionalState extends App {
   } yield total
 
   println(udsCart.run(ShoppingCart(List(), 0)).value)
-
   println("====")
 
   // TODO 2: pure mental gymnastics
@@ -76,7 +75,7 @@ object FunctionalState extends App {
   // returns a State data structure that, when run, will return Unit and sets the state to f(state)
   def modify[A](f: A => A): State[A, Unit] = State((a: A) => (f(a), ()))
 
-  // all the 4 above methods are already available in the below import
+  // all the 4 above methods are already available in the import: import cats.data.State._
 
   val program: State[Int, (Int, Int, Int)] = for {
     a <- get[Int]
