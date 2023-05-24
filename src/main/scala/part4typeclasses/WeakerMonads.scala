@@ -4,7 +4,7 @@ import cats.{Applicative, Apply}
 
 object WeakerMonads extends App {
   trait MyFlatMap[M[_]] extends Apply[M] {
-    def flatMap[A, B](ma: M[A])(f: A => M[B]): M[B]
+    def flatMap[A, B](ma: M[A])(f: A => M[B]): M[B] // fundamental method for FlatMap
 
     // TODO
     // hint: Apply extends Functor
@@ -13,7 +13,7 @@ object WeakerMonads extends App {
       //       |  |         /   \    \/
       //       |  |     M[A=>B] A=>B  B
       //       |  |     \______  ____/
-      //       M[A] A=>        M[B]
+      //     M[A] A=>         M[B]
     }
   }
 
@@ -32,13 +32,19 @@ object WeakerMonads extends App {
 
   // the above MyMonad definition actually matches with the cats.Monad (which extends Applicative and FlatMap
 
-  import cats.FlatMap // The cats FlatMap is rarely used independently because there are other stronger FlatMaps used in practice - those are monads.
+  import cats.FlatMap
+  // The cats FlatMap is rarely used independently because there are other stronger FlatMaps used in practice - those are monads.
   // However FlatMap has its own extension methods
   import cats.syntax.flatMap._
   import cats.syntax.functor._ // map extension method
 
+  // given that you have flatMap and functor syntax, you can provide for comprehensions
   def getPairs[M[_] : FlatMap, A, B](numbers: M[A], chars: M[B]): M[(A, B)] = for {
     a <- numbers
     c <- chars
   } yield (a, c)
+
+  import cats.instances.list._
+
+  println(getPairs[List, Int, String](List(1, 2), List("a", "b"))) // requires implicit from cats.instances.list._
 }
