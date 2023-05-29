@@ -98,19 +98,23 @@ object Traversing extends App {
 
   // test that the predicate satisfies for all the elements in the list. If some element do not satisfy, then this will return a None
   // this is equivalent to forall() method
+
+  import cats.instances.option._
+
   def filterAsOption(list: List[Int])(predicate: Int => Boolean): Option[List[Int]] =
     listTraverse[Option, Int, Int](list)(n => Some(n).filter(predicate)) // requires cats.instances.option._
 
   // TODO 4 - what's the result of
   println(filterAsOption(List(2, 4, 6))(_ % 2 == 0)) // Some(List(2,4,6) - the predicate returns true for all elements. So the foldLeft works and return the Option of the consolidated list
   println(filterAsOption(List(1, 2, 3))(_ % 2 == 0)) // None - for 1 and 3, the predicate returns false, hence the Option becomes None. So foldLeft will become None too
-  println(List(1, 2, 3).forall(_ % 2 == 0))
   println(List(2, 4, 6).forall(_ % 2 == 0))
+  println(List(1, 2, 3).forall(_ % 2 == 0))
   println("====")
 
   // listTraverse is useful in presence of some Applicatives that are not Monads e.g. Validated
 
   import cats.data.Validated
+  // Semigroup[List] => Applicative[ErrorsOr]
   import cats.instances.list._
 
   type ErrorsOr[T] = Validated[List[String], T]
