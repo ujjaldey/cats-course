@@ -1,10 +1,12 @@
 package part4typeclasses
 
-import cats.{Applicative, Foldable, Functor}
+import cats.{Applicative, Foldable, Functor, Monad}
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
+
+// Traversable provide a higher level approach to iterations
 object Traversing extends App {
   implicit val ec: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(8))
   val servers: List[String] = List("ci.server", "staging.server", "prod.server")
@@ -32,7 +34,7 @@ object Traversing extends App {
   val allBandwidthsTraverse: Future[List[Int]] = Future.traverse(servers)(getBandwidth)
   allBandwidthsTraverse.foreach(println)
   // alternative
-  // sequence is useful when you want to unwrap a list of Futures into a Future containing a single result
+  // sequence is useful when you want to unwrap a list of Futures into a Future of a list
   val allBandwidthsSequence: Future[List[Int]] = Future.sequence(servers.map(getBandwidth))
   allBandwidthsSequence.foreach(println)
 
@@ -40,8 +42,14 @@ object Traversing extends App {
 
   // TODO 1
 
+  // pure
+
   import cats.syntax.applicative._
-  import cats.syntax.apply._ // mapN
+  // flatMap
+  import cats.syntax.flatMap._
+  // map
+  import cats.syntax.apply._
+  import cats.syntax.functor._ // mapN
 
   // general implementation of Traverse for any kind of wrapper type (not just Future), but all for anything that might have Monad in scope
   //  def listTraverse[F[_] : Monad, A, B](list: List[A])(func: A => F[B]): F[List[B]] =
@@ -55,6 +63,18 @@ object Traversing extends App {
   //
   // instead of Monad, we can also use Applicative, but Applicative does not have access to map and flatMap
   // but we can still combine wAccumulator with wElement with another function: mapN
+
+  def listTraverseX[F[_] : Monad, A, B](list: List[A])(func: A => F[B]): F[List[B]] =
+    list.foldLeft(List.empty[B].pure[F]) { (wAccumulator, element) => // wrapper accumulator
+      val wElement: F[B] = func(element) // wrapper element
+      for {
+        acc <- wAccumulator
+        elem <- wElement
+      } yield acc :+ elem
+    }
+
+  // listTraverseX has a lower bound not as a Monad, but as weaker monad i.e. applicative
+  // being applicative, it does not have access to map and flatMap, but mapN can be used (part of weaker applicative)
   def listTraverse[F[_] : Applicative, A, B](list: List[A])(func: A => F[B]): F[List[B]] =
     list.foldLeft(List.empty[B].pure[F]) { (wAccumulator, element) => // wrapper accumulator
       val wElement: F[B] = func(element) // wrapper element
@@ -75,8 +95,6 @@ object Traversing extends App {
   println(listSequence(List(Vector(1, 2), Vector(3, 4), Vector(5, 6)))) // returns Vector[List[Int]] - all the possible 3-pairs (cartesian product of all possible combination)
 
   println("====")
-
-  import cats.instances.option._
 
   // test that the predicate satisfies for all the elements in the list. If some element do not satisfy, then this will return a None
   // this is equivalent to forall() method
