@@ -45,7 +45,7 @@ object ContravariantFunctors extends App {
 
   println(format(Option(42)))
   println(format(Option(Option(42))))
-  println(format(Option(Option(Option(false)))))
+  println(format(Option(Option(Option(false))))) // we can repeat the pattern n times. the compiler has access to Option[T], so it can access Option[Option[T]] as well
   println(format(Option("jooo")))
   println("====")
 
@@ -69,7 +69,7 @@ object ContravariantFunctors extends App {
       - format of Int
 
     Map applies transformations in sequence
-    Contramap applies transformations in REVERSE sequence
+    Contramap applies transformations in REVERSE sequence (that's why it's called contramap)
     because of this, type classes like above are called contravariant type classes
    */
 
@@ -80,7 +80,8 @@ object ContravariantFunctors extends App {
   val showOption: Show[Option[Int]] = Contravariant[Show].contramap(showInts)(_.getOrElse(0))
 
   // above getOptionFormat can be rewritten with Monoid as:
-  implicit def getOptionFormatMonoid[T](implicit f: Format[T], m: Monoid[T]): Format[Option[T]] = f.contramap[Option[T]](_.getOrElse(m.empty))
+  implicit def getOptionFormatMonoid[T](implicit f: Format[T], m: Monoid[T]): Format[Option[T]] =
+    f.contramap[Option[T]](_.getOrElse(m.empty)) // Monoid has empty method
 
   import cats.syntax.contravariant._ // extension method
 
