@@ -4,7 +4,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-object _1_Essentials {
+object _3_Essentials {
   // values
   val aBoolean: Boolean = false
 
