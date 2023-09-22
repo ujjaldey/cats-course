@@ -1,7 +1,7 @@
 package part2abstractMath
 
-object Semigroups extends App {
-  // Semigroups COMBINE elements of the same type
+object _8_Semigroups extends App {
+  // Semigroups are a type class that COMBINE elements of the same type
 
   import cats.Semigroup
   import cats.instances.int._
@@ -20,7 +20,7 @@ object Semigroups extends App {
   def reduceInts(list: List[Int]): Int = list.reduce(naturalIntSemigroup.combine)
 
   // specific APIs do not need Semigroup. Just _+_ should work. e.g.:
-  def reduceInts2(list: List[Int]): Int = list.reduce(_ + _)
+  def reduceInts2(list: List[Int]): Int = list.reduce(_ + _) // same as list.sum
 
   println(reduceInts(List(1, 2, 3)))
 
@@ -31,7 +31,10 @@ object Semigroups extends App {
   println(reduceInts(numbers))
   println(reduceStrings(List("a", "b", "c")))
 
-  // general API
+  println("====")
+
+  // general API for any type T
+  // this will reduce any list of elements T, provided there is an implicit Semigroup[T]
   def reduceThings[T](list: List[T])(implicit semigroup: Semigroup[T]): T = list.reduce(semigroup.combine)
 
   // compiler injects the implicit Semigroup[Int]
@@ -46,11 +49,19 @@ object Semigroups extends App {
 
   import cats.instances.option._
 
-  val numberOptions = numbers.map(n => Option(n))
-  println(reduceThings(numberOptions)) // an Option[Int] containing the sum of all the numbers. No need to explicitly define Option[Int] type
+  val numberOptions: List[Option[Int]] = numbers.map(n => Option(n))
+  println(reduceThings(numberOptions)) // an Option[Int] containing the sum of all the numbers.
+  // this is because the implicit Semigroup of Option[Int] is already being made available in the scope for the compiler
+  // No need to explicitly define Option[Int] type
 
   val stringOptions: List[Option[String]] = List("a", "b", "c").map(s => Option(s))
   println(reduceThings(stringOptions))
+
+  // when we have cats.instances.int._ and cats.instances.option._ in scope, the compiler would produce
+  //  implicit Semigroup[Option[Int]]. The natural combination function for Option[Int] should be the sum of their numbers if they are not empty
+  //  if either of them is empty, then the combination should return None
+  // as we have cats.instances.string._, the compiler would also produce Option[String]
+
   println("====")
 
   // TODO 1: support a new type
