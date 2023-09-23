@@ -5,7 +5,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
-object Monads extends App {
+object _11_Monads extends App {
   // lists
   val numbersList = List(1, 2, 3)
   val charsList = List('a', 'b', 'c')
@@ -46,15 +46,16 @@ object Monads extends App {
 
   /*
     Pattern
-    - wrapping a value into a monadic (M) value
-    - the flatMap mechanism (flatMap guarantees a sequential order of execution)
+    - wrapping a value into a monadic (M) value (like List, Option, Future)
+    - ability to transform those values using a flatMap. the flatMap mechanism (flatMap guarantees a sequential order of execution)
 
     the cats type class that formalizes these 2 capabilities is called: MONADS
    */
 
   // higher kinded type class
   trait MyMonad[M[_]] {
-    def pure[A](value: A): M[A] // takes A and returns M[A]
+    def pure[A](value: A): M[A] // takes A and returns M[A]. i.e. say, Int to List[Int]
+    // pure is a very general method. It takes a value, and wraps that value into M of that value
 
     def flatMap[A, B](ma: M[A])(f: A => M[B]): M[B] // not A=>B, rather A=>M[B]
   }
@@ -62,23 +63,24 @@ object Monads extends App {
   // Cats Monad
 
   import cats.Monad
-  import cats.instances.option._ // implicit Monad[Option]
+  import cats.instances.option._ // implicit Monad[Option] as we have cats.Monad in scope
 
   val optionMonad = Monad[Option]
   val anOption = optionMonad.pure(4) // Option(4) == Some(4)
   val aTransformedOption = optionMonad.flatMap(anOption)(x => if (x % 3 == 0) Some(x + 1) else None)
-  println(aTransformedOption)
+  val aTransformedOption2 = optionMonad.flatMap(anOption)(x => if (x % 3 != 0) Some(x + 1) else None)
+  println(anOption, aTransformedOption, aTransformedOption2)
 
-  import cats.instances.list._ // implicit Monad[List]
+  import cats.instances.list._ // will bring implicit Monad[List] in scope
 
   val listMonad = Monad[List]
   val aList = listMonad.pure(3) // List(3)
   val aTransformedList = listMonad.flatMap(aList)(x => List(x, x + 1)) // List(3,4)
-  println(aTransformedList)
+  println(aList, aTransformedList)
 
   // TODO 2: use a Monad[Future]
 
-  import cats.instances.future._
+  import cats.instances.future._ // will bring implicit Monad[Future] in scope
 
   val futureMonad = Monad[Future] // requires an implicit ExecutionContext - which we have defined above already
   val aFuture = futureMonad.pure(3)
@@ -92,13 +94,17 @@ object Monads extends App {
   def getPairsList(numbers: List[Int], chars: List[Char]): List[(Int, Char)] = numbers.flatMap(n => chars.map(c => (n, c)))
 
   // in case you want to have same feature for Option or Future, repeat the code:
-  def getPairsOption(number: Option[Int], chars: Option[Char]): Option[(Int, Char)] = number.flatMap(n => chars.map(c => (n, c)))
+  def getPairsOption(number: Option[Int], char: Option[Char]): Option[(Int, Char)] = number.flatMap(n => char.map(c => (n, c)))
 
-  def getPairsFuture(number: Future[Int], chars: Future[Char]): Future[(Int, Char)] = number.flatMap(n => chars.map(c => (n, c)))
+  def getPairsFuture(number: Future[Int], char: Future[Char]): Future[(Int, Char)] = number.flatMap(n => char.map(c => (n, c)))
 
   // generalize
-  def getPairs[M[_], A, B](ma: M[A], mb: M[B])(implicit monad: Monad[M]): M[(A, B)] =
-    monad.flatMap(ma)(a => monad.map(mb)(b => ((a, b))))
+  // M[_] is a higher kinded type
+  // if we have Monad[M] in scope, we can do the similar thing in a generic way
+  def getPairs[M[_], A, B](ma: M[A], mb: M[B])(implicit monad: Monad[M]): M[(A, B)] = {
+    monad.flatMap(ma)(a => monad.map(mb)(b => ((a, b)))) // monad supports flatMap and map by default
+    // we can flatMap any kind of data structure (List, Option, Future) as long as we have an implicit Monad in scope
+  }
 
   val numbersOption = Option(1)
   val charsOption = Option('a')
@@ -107,7 +113,9 @@ object Monads extends App {
 
   println(getPairs(numbersList, charsList))
   println(getPairs(numbersOption, charsOption))
-  getPairs(numbersFuture, charsFuture).foreach(println)
+  getPairs(numbersFuture, charsFuture).foreach(println) // if we just print the Future, we don't see anything
+
+  // we can transform any kind of monadic value as long as we have an implicit monad in scope
 
   println("===")
   println("===")
