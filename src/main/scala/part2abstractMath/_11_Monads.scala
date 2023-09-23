@@ -119,14 +119,23 @@ object _11_Monads extends App {
 
   println("===")
   println("===")
+  println("===")
+
+  //  PART 2
 
   // extension methods - weirder imports - pure, flatMap
 
   import cats.syntax.applicative._ // pure is here
 
+  // cats.syntax.applicative._ imports the pure() extension method
+  // pure requires an implicit Applicative[F]. Monads are a specialized type Applicative and the Monad will be
+  //  brought in scope if we type the right type (say Option or List)
   val oneOption = 1.pure[Option] // implicit Monad[Option] will be used => Some(1)
   val oneList = 1.pure[List] // List(1) // flatMap is here
   println("a".pure[List])
+  println(oneOption, oneList)
+
+  // the pure() method is part of the Applicative type.
 
   import cats.implicits.catsStdInstancesForTry
 
@@ -142,7 +151,7 @@ object _11_Monads extends App {
   val oneOptionMapped = Monad[Option].map(Option(2))(_ + 1)
   println(oneOptionMapped) // map is here
 
-  import cats.syntax.functor._ // map is here
+  import cats.syntax.functor._ // map is here. this also has the extension methods for Monad
 
   trait MyMonadNew[M[_]] {
     def pure[A](value: A): M[A]
@@ -151,9 +160,10 @@ object _11_Monads extends App {
 
     // TODO implement this
     def map[A, B](ma: M[A])(f: A => B): M[B] = // map has A=>B, not A=>M[B]
-      flatMap(ma)(x => pure(f(x)))
-    // cats monad's map is also implemented the same way. so the only abstract methods that mondas have are pure() and flatMap()
-    // so we can say that Monad, by default, extends a Functor.
+      flatMap(ma)(x => pure(f(x))) // f(x) returns a B, but we need M[B]. Hence we use the pure() method to covert B to M[B]
+
+    // cats monad's map is also implemented the same way. so the only abstract methods that Mondas have are pure() and flatMap()
+    // so we can say that Monad, by default, extends a Functor because Monad can provide the fundamental method of Functor i.e. a map().
     // If you see the definition of Monad, it extends Applicative[F] which extends Apply[F] which extends Functor[F]
     // MONADS ARE ALSO FUNCTORS. Monads also have access to Functor's extension methods
   }
@@ -162,19 +172,24 @@ object _11_Monads extends App {
   println(oneOptionMapped2)
 
   // as Monad has access to map() and flatMap(), it can also have access to for comprehensions
-  // for comprehensions
+  // for comprehensions:
   val composedOptionFor = for {
     one <- 1.pure[Option]
     two <- 2.pure[Option]
   } yield one + two
 
+  val composedOptionFor2 = 1.pure[Option].flatMap(one => 2.pure[Option].map(two => one + two))
+
   println("==>", composedOptionFor)
+  println("==>", composedOptionFor2)
+
+  println("====")
 
   // TODO 4: implement a shorter version of getPairs using for-comprehensions
   //  def getPairsFor[M[_], A, B](ma: M[A], mb: M[B])(implicit monad: Monad[M]): M[(A, B)] = {
   // or remove the implicit and rewrite as:
-  def getPairsFor[M[_] : Monad, A, B](ma: M[A], mb: M[B]): M[(A, B)] = {
-    //    ma.flatMap(a => mb.map(b=> (a,b)))
+  def getPairsFor[M[_] : Monad, A, B](ma: M[A], mb: M[B]): M[(A, B)] = { // implicit Monad[M] can be short-formed as M[_] : Monad
+    //    ma.flatMap(a => mb.map(b=> (a, b)))
     // or same as above:
     for {
       a <- ma
