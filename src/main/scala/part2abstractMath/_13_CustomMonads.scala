@@ -2,7 +2,10 @@ package part2abstractMath
 
 import scala.annotation.tailrec
 
-object CustomMonads extends App {
+object _13_CustomMonads extends App {
+
+  // defining a Monad instance generally boils down to implementing the functional pure and flatMap functions
+  // Monad types also need to have some iteration methods which need to be stack-safe
 
   import cats.Monad
 
@@ -10,23 +13,28 @@ object CustomMonads extends App {
     override def pure[A](x: A): Option[A] = Option(x)
 
     override def flatMap[A, B](fa: Option[A])(f: A => Option[B]): Option[B] = fa.flatMap(f)
+    // Option[A] already has a flatMap which returns A. applying f on A would return Option[B]
 
-    // Monad type has some iteration method besides pure() and flatMap() as Monad has a significance in sequential computation.
-    // it represents iterations as in imperative programming with immutable data structure in this form
-    // so Monad will have some methods that will allow you to iterate, starting from some value - e.g. iterateUntil, iterateWhile, iterateForeverM, iterateUntilM, iterateWhileM. but they are not used much
+    // Monad type has some iteration method besides pure() and flatMap() as Monad has a significance
+    // in sequential computation. it represents iterations as in imperative programming with
+    // immutable data structure in this form. so Monad will have some methods that will allow you to iterate,
+    // starting from some value - e.g. iterateUntil, iterateWhile, iterateForeverM, iterateUntilM, iterateWhileM.
+    // but they are not used much
 
     // tailRecM: start with a value a of type A
     //    run the function on the value type A, and obtain an Option of Either[A,B]
     //    if Option is empty or contains Either of type A, run the method again, and again, and again
     //    until the final result is Either of type B
 
-    // tailRecM does NOT stack-overflow. Hence it's called tailRec
+    // tailRecM must be tail recursive so that the Monad does NOT stack-overflow. Hence it's called tailRec
+    // the function satisfies the tail recursion requirement as the tailRecM() is the last expression of its code branch
     @tailrec
     override def tailRecM[A, B](a: A)(f: A => Option[Either[A, B]]): Option[B] = f(a) match {
       case None => None
-      case Some(Left(v)) => tailRecM(v)(f) // undesirable value. so run the function again
-      case Some(Right(b)) => Some(b) // desirable value, so return the Right value
+      case Some(Left(v)) => tailRecM(v)(f) // undesirable value of type A. so run the function again until we get type B
+      case Some(Right(b)) => Some(b) // desirable value of type B, so return the Right value in the form of Option[B]
     }
+    // this is the auxiliary function in terms of which all the other iteration methods are based
   }
 
   // TODO 1: define a monad for the identity type
@@ -36,7 +44,7 @@ object CustomMonads extends App {
   implicit object IdentityMonad extends Monad[Identity] {
     override def pure[A](x: A): Identity[A] = x // it should return Identity[A], but as it is same as A, we return just x
 
-    override def flatMap[A, B](fa: Identity[A])(f: A => Identity[B]): Identity[B] = f(fa)
+    override def flatMap[A, B](a: Identity[A])(f: A => Identity[B]): Identity[B] = f(a)
 
     @tailrec
     override def tailRecM[A, B](a: A)(f: A => Identity[Either[A, B]]): Identity[B] = f(a) match {
@@ -46,7 +54,7 @@ object CustomMonads extends App {
   }
 
   // harder example
-  sealed trait Tree[+A]
+  sealed trait Tree[+A] // covariant
 
   final case class Leaf[+A](value: A) extends Tree[A]
 
@@ -57,7 +65,7 @@ object CustomMonads extends App {
   implicit object TreeMonad extends Monad[Tree] {
     override def pure[A](x: A): Tree[A] = Leaf(x)
 
-    // stack recursive
+    // stack recursive - might crash if the Tree is very deep
     override def flatMap[A, B](fa: Tree[A])(f: A => Tree[B]): Tree[B] = fa match {
       case Leaf(v) => f(v)
       case Branch(left, right) => Branch(flatMap(left)(f), flatMap(right)(f))
