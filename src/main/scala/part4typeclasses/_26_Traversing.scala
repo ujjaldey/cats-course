@@ -7,12 +7,13 @@ import scala.concurrent.{ExecutionContext, Future}
 
 
 // Traversable provide a higher level approach to iterations
-object Traversing extends App {
+object _26_Traversing extends App {
   implicit val ec: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(8))
   val servers: List[String] = List("ci.server", "staging.server", "prod.server")
 
   def getBandwidth(hostname: String): Future[Int] = Future(hostname.length * 80) // dummy
 
+  // get all the bandwidths
   /*
     NOT A GOOD SOLUTION, AS WE NEED TO CREATE THE FUTURES ALL THE TIMES, AND WRAP/UNWRAP THEM
     we have
@@ -23,33 +24,45 @@ object Traversing extends App {
   val allBandwidths: Future[List[Int]] = servers.foldLeft(Future(List.empty[Int])) { (accumulator, hostname) =>
     val bandFuture: Future[Int] = getBandwidth(hostname)
     for {
-      accBandwidths <- accumulator
+      accBandwidths <- accumulator // List[Int]
       band <- bandFuture
-    } yield accBandwidths :+ band
+    } yield accBandwidths :+ band // append a Int to a List[Int]
   }
 
   allBandwidths.foreach(println)
 
   // BETTER SOLUTION
+  // traverse takes some container and a function that turns every element into Future of something else
+  // and it will return something that we wanted
+  // here the traverse will automatically return a Future[List[Int]] by combining the intermediate
+  // values to a single list.
+  // traverse also uses foldLeft internally
   val allBandwidthsTraverse: Future[List[Int]] = Future.traverse(servers)(getBandwidth)
   allBandwidthsTraverse.foreach(println)
+
   // alternative
-  // sequence is useful when you want to unwrap a list of Futures into a Future of a list
+  // sequence takes a container of Futures and returns a Future of containers.
+  // servers.map(getBandwidth) returns a List[Future] and if you do sequence on that, it will
+  // return a Future[List].
+  // sequence is useful when you want to unwrap a List of Futures into a Future of a List
   val allBandwidthsSequence: Future[List[Int]] = Future.sequence(servers.map(getBandwidth))
   allBandwidthsSequence.foreach(println)
 
-  println("====")
+  println("======")
 
   // TODO 1
 
   // pure
 
+  // applicative
+
   import cats.syntax.applicative._
   // flatMap
   import cats.syntax.flatMap._
   // map
+  import cats.syntax.functor._
+  // mapN
   import cats.syntax.apply._
-  import cats.syntax.functor._ // mapN
 
   // general implementation of Traverse for any kind of wrapper type (not just Future), but all for anything that might have Monad in scope
   //  def listTraverse[F[_] : Monad, A, B](list: List[A])(func: A => F[B]): F[List[B]] =
@@ -60,43 +73,59 @@ object Traversing extends App {
   //        elem <- wElement
   //      } yield acc :+ elem
   //    }
-  //
-  // instead of Monad, we can also use Applicative, but Applicative does not have access to map and flatMap
-  // but we can still combine wAccumulator with wElement with another function: mapN
 
+  // this operates on any higher ordered type provided we have a Monad in scope.
+  // F[_] : Monad means there is an implicit Monad[F] as a parameter
   def listTraverseX[F[_] : Monad, A, B](list: List[A])(func: A => F[B]): F[List[B]] =
+  // List.empty[B] wrapped in F, so we call te pure method
     list.foldLeft(List.empty[B].pure[F]) { (wAccumulator, element) => // wrapper accumulator
       val wElement: F[B] = func(element) // wrapper element
       for {
         acc <- wAccumulator
         elem <- wElement
-      } yield acc :+ elem
+      } yield acc :+ elem // B appended to List[B]
     }
 
-  // listTraverseX has a lower bound not as a Monad, but as weaker monad i.e. applicative
-  // being applicative, it does not have access to map and flatMap, but mapN can be used (part of weaker applicative)
+  // instead of Monad, we can also use Applicative, but Applicative does not have access to map and flatMap
+  // but we can still combine wAccumulator with wElement with another function: mapN
+
+  // listTraverseX has a lower minimum bound, not as a Monad, but as weaker monad i.e. Applicative
+  // being applicative, it does not have access to map and flatMap, but mapN can be used
+  // (part of weaker applicative)
+  // mapN is applied to a Tuple of wrappers and applies a function on the values inside.
+  // and the result is another wrapper with the result of that function.
   def listTraverse[F[_] : Applicative, A, B](list: List[A])(func: A => F[B]): F[List[B]] =
     list.foldLeft(List.empty[B].pure[F]) { (wAccumulator, element) => // wrapper accumulator
       val wElement: F[B] = func(element) // wrapper element
-      (wAccumulator, wElement).mapN(_ :+ _)
+      (wAccumulator, wElement).mapN(_ :+ _) // B appended to List[B]
     }
-  // as we can use Applicative instead of Monad, it widens up the wrapper types we can use
+
+  // this proves that the minimum requirement for this list traverse method to work is the
+  // presence of an Applicative, not a Monad. it widens up the wrapper types we can use
   // not just Monads, but other things which are not Monad like Validated
 
   // TODO 2
+  // sequence is same as traverse, without the function
+  // F has an implicit Applicative in scope.
   def listSequence[F[_] : Applicative, A](list: List[F[A]]): F[List[A]] =
+  // in listTraverse we need to pass a function. but here, it should be a function for an element
+  // to be converted to itself. i.e. x=>x
+  //    listTraverse(list)(x => x)
     listTraverse(list)(identity) // instead of x=>x, we can call identity
 
   // TODO 3 - what's the result of
 
   import cats.instances.vector._
 
-  println(listSequence(List(Vector(1, 2), Vector(3, 4)))) // returns Vector[List[Int]] - all the possible 2-tuples (cartesian product of all possible combination)
-  println(listSequence(List(Vector(1, 2), Vector(3, 4), Vector(5, 6)))) // returns Vector[List[Int]] - all the possible 3-pairs (cartesian product of all possible combination)
+  println(listSequence(List(Vector(1, 2), Vector(3, 4)))) // requires Applicative[Vector] in scope
+  // returns Vector[List[Int]] - all the possible 2-tuples (cartesian product of all possible combination)
+  println(listSequence(List(Vector(1, 2), Vector(3, 4), Vector(5, 6))))
+  // returns Vector[List[Int]] - all the possible 3-pairs (cartesian product of all possible combination)
 
-  println("====")
+  println("=======")
 
-  // test that the predicate satisfies for all the elements in the list. If some element do not satisfy, then this will return a None
+  // test that the predicate satisfies for all the elements in the list. If some element do not satisfy,
+  // then this will return a None.
   // this is equivalent to forall() method
 
   import cats.instances.option._
