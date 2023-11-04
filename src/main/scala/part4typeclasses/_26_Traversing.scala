@@ -130,34 +130,67 @@ object _26_Traversing extends App {
 
   import cats.instances.option._
 
+  def filterAsOptionX(list: List[Int])(predicate: Int => Boolean): Option[List[Int]] =
+    listTraverse[Option, Int, Int](list)(n => if (predicate(n)) Some(n) else None)
+  // but it's better to replace this with filter
+
   def filterAsOption(list: List[Int])(predicate: Int => Boolean): Option[List[Int]] =
     listTraverse[Option, Int, Int](list)(n => Some(n).filter(predicate)) // requires cats.instances.option._
 
   // TODO 4 - what's the result of
-  println(filterAsOption(List(2, 4, 6))(_ % 2 == 0)) // Some(List(2,4,6) - the predicate returns true for all elements. So the foldLeft works and return the Option of the consolidated list
-  println(filterAsOption(List(1, 2, 3))(_ % 2 == 0)) // None - for 1 and 3, the predicate returns false, hence the Option becomes None. So foldLeft will become None too
+  println(filterAsOption(List(2, 4, 6))(_ % 2 == 0))
+  // Some(List(2,4,6) - the predicate returns true for all elements.
+  // when filterAsOption implemented in terms of traverse which is implemented in terms of foldLeft,
+  //  every new element is being combined with the accumulator as a wrap.
+  // so we are combining 3 Some() instances to a Some[List]
+
+  println(filterAsOption(List(1, 2, 3))(_ % 2 == 0))
+  // None - for 1 and 3, the predicate returns false, hence the Option becomes None.
+  // here for 1 and 3, the predicate returns false. As listTraverse is implemented in terms of
+  // foldLeft and mapN combination function, we are combining some instances with None.
+  // when you combine a Some with a None, you get None. So the output will be None.
+
+  // this is equivalent to forall method of the List
   println(List(2, 4, 6).forall(_ % 2 == 0))
   println(List(1, 2, 3).forall(_ % 2 == 0))
-  println("====")
+  println("==========")
 
   // listTraverse is useful in presence of some Applicatives that are not Monads e.g. Validated
 
+  // there is an instance of Applicative for Validated, but no Monad.
+
   import cats.data.Validated
-  // Semigroup[List] => Applicative[ErrorsOr]
+
+  // imports Semigroup[List], so we can generate Applicative[ErrorsOr]
   import cats.instances.list._
 
   type ErrorsOr[T] = Validated[List[String], T]
 
-  def filterAsValidated(list: List[Int])(predicate: Int => Boolean): ErrorsOr[List[Int]] =
+  def filterAsValidated(list: List[Int])(predicate: Int => Boolean): ErrorsOr[List[Int]] = // Validated[List[String], List[Int]]
     listTraverse[ErrorsOr, Int, Int](list) { n =>
       if (predicate(n)) Validated.valid(n)
       else Validated.invalid(List(s"predicate for $n failed"))
     } // requires cats.instances.list._
 
   // TODO 5 - what's the result of
-  println(filterAsValidated(List(2, 4, 6))(_ % 2 == 0)) // Valid(List(2,4,6))
-  println(filterAsValidated(List(1, 2, 3))(_ % 2 == 0)) // Invalid(List(predicate for 1 failed, predicate for 3 failed))
+  println(filterAsValidated(List(2, 4, 6))(_ % 2 == 0))
+  // all the 3 elements passes in the predicate. So all the returns Valid.
+  // hence the combined value is going to be: Valid(List(2,4,6))
 
+  println(filterAsValidated(List(1, 2, 3))(_ % 2 == 0))
+  // Invalid(List(predicate for 1 failed, predicate for 3 failed))
+  // for every value the predicate returns false, would generate an independent list of Invalid (error).
+  // and these Validated instances will be combined as according to mapN function and
+  // return a Invalid with combined set of errors.
+
+  // in this case, Validated is a useful instance of a data type for which no Monad in scope, but just Applicative.
+  // so it's worth making listTraverse as an Applicative (not a stronger restriction for Monad)
+
+  // when designing an API, make sure to create the methods such that it requires
+  // least restriction, not most convenient one.
+
+
+  // we can generalize the listTraverse to any type of container, not just List:
   // use L instead of List
   // MyTraverse can naturally implement the map method which is specific to a Functor. So it is safe to mix in Functor
   trait MyTraverse[L[_]] extends Foldable[L] with Functor[L] {
@@ -175,8 +208,13 @@ object _26_Traversing extends App {
     //type Identity[T] = T // cats identifies there is an Applicative for the fake type Identity
     // there is such a thing called cats.Id
 
-    import cats.Id
+    import cats.Id // same as Identity: type Id[A] = A. Cats will create an implicit val of catsInstancesForId
+    // which contains a BiMonad which is a very strong type of Monad.
+    // when wè use cats.Id, cats will automatically create an implicit Applicative that can be injected in the scope.
 
+
+    // MyTraverse can naturally implement the map method which is specific to a Functor.
+    // so we can safely mixin the Functor trait along with MyTraverse above.
     def map[A, B](wa: L[A])(f: A => B): L[B] = {
       // function f takes A and returns B (not container of B)
       // but we are tricking the compiler by using Identifier
@@ -191,7 +229,8 @@ object _26_Traversing extends App {
   import cats.instances.future._ // Applicative[Future]
 
   // actual problem with the server bandwidth
-  val allBandwidthCats = Traverse[List].traverse(servers)(getBandwidth) // requires import cats.instances.future._
+  val allBandwidthCats = Traverse[List].traverse(servers)(getBandwidth)
+  // requires implicit Applicative[Future] from import cats.instances.future._
   allBandwidthCats.foreach(println)
 
   println("====")
